@@ -536,8 +536,7 @@ class MorrisCounter(ApproximateCounter):
         :param by: The granularity of the stream (e.g., Stream.BY_CHAR for character-level stream).
         :param filter: The filter to be applied to each stream element.
         :param map: The map to be applied to each stream element.
-        :param a: Parameter 'a' for the Morris Algorithm.
-        :param b: Parameter 'b' for the Morris Algorithm.
+        :param a: 
         :param seed: Optional seed for controlling randomness.
         :return: The counter.
         """

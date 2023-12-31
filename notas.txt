@@ -1,2 +1,43 @@
 Fixed probability counter : 1 / 32 Lossy-Count
 Adaptive Stochastic Counting
+
+\begin{algorithm}
+\caption{Lossy Count Algorithm}
+\begin{algorithmic}[1]
+\State $D \gets \{\}$
+\State $N \gets 0$
+\State $w \gets \lceil 1/\epsilon \rceil$
+\State $b\_current \gets 1$
+
+\While {stream has next item}
+    \State $c \gets$ next item
+    \State $N \gets N + 1$
+
+    \If {$(c, f, \delta)$ exists in $D$}
+        \State $f \gets f + 1$
+    \Else
+        \State Insert $(c, 1, b\_current - 1)$ into $D$
+    \EndIf
+
+    \If {$N \mod w = 0$}
+        \State prune($D, b\_current$)
+        \State $b\_current \gets b\_current + 1$
+    \EndIf
+\EndWhile
+
+\begin{algorithm}
+\caption{Fixed Probability Count Algorithm}
+\begin{algorithmic}[1]
+\State $C \gets \{\}$
+\While {stream has next item}
+    \State $c \gets$ next item
+    \State $r \gets$ random[0, 1]
+    
+    \If {$r \leq p$}
+        \If {$(c, f)$ exists in $C$}
+            \State $f \gets f + 1$
+        \Else
+            \State Insert $(c, 1)$ into $C$
+        \EndIf
+    \EndIf
+\EndWhile
