@@ -1,0 +1,5 @@
+mmh3~=4.0.1
+xxhash~=3.4.1
+pandas~=2.1.4
+seaborn~=0.13.0
+matplotlib~=3.8.2
