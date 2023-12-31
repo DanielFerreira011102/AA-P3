@@ -489,6 +489,18 @@ class FixedProbabilityCounter(ApproximateCounter):
         if random.random() < self.p:
             self.counter[element] += 1
 
+    def transform(self, r=True):
+        """
+        Transform the counter to estimate the cardinality.
+
+        :param r: If True, round the estimate.
+        :return: The counter.
+        """
+        if not self._transformed:
+            self.apply(lambda x, _: self._estimate(x, r))
+            self._transformed = True
+        return self
+
     def config(self):
         """
         Configuration of the counter.
@@ -497,14 +509,17 @@ class FixedProbabilityCounter(ApproximateCounter):
         """
         return {**super().config(), "p": self.p, "seed": self._seed}
 
-    def _estimate(self, element):
+    def _estimate(self, element, r=True):
         """
         Return the estimate of the given element in the counter.
 
         :param element: The element in the data stream.
+        :param r: If True, round the estimate.
         :return: The estimate of the given element in the counter.
         """
-        return round(self.counter[element] / self.p)
+        e = self.counter[element] / self.p
+        return round(e) if r else e
+
 
 
 class MorrisCounter(ApproximateCounter):
@@ -541,6 +556,18 @@ class MorrisCounter(ApproximateCounter):
         if (self.counter[element] < self.b) or (random.random() < 1 / ((1 + self.a) ** self.counter[element])):
             self.counter[element] += 1
 
+    def transform(self, r=True):
+        """
+        Transform the counter to estimate the cardinality.
+
+        :param r: If True, round the estimate.
+        :return: The counter.
+        """
+        if not self._transformed:
+            self.apply(lambda x, _: self._estimate(x, r))
+            self._transformed = True
+        return self
+
     def config(self):
         """
         Configuration of the counter.
@@ -549,15 +576,15 @@ class MorrisCounter(ApproximateCounter):
         """
         return {**super().config(), "a": self.a, "b": self.b, "seed": self._seed}
 
-    def _estimate(self, element):
+    def _estimate(self, element, r=True):
         """
         Return the estimate of the given element in the counter.
 
         :param element: The element in the data stream.
         :return: The estimate of the given element in the counter.
         """
-        return round(((1 + self.a) ** self.counter[element]) / self.a - 1) if self.counter[element] > self.b else \
-        self.counter[element]
+        e = (((1 + self.a) ** self.counter[element]) / self.a - 1) if self.counter[element] > self.b else self.counter[element]
+        return round(e) if r else e
 
 
 class CountMinSketchCounter(ApproximateCounter):
@@ -715,17 +742,18 @@ class LossyCountingCounter(ApproximateCounter):
             self._prune()
             self._bucket_id += 1
 
-    def transform(self, t=None, p=False):
+    def transform(self, t=None, s=False, r=True):
         """
         Transform the counter to estimate the cardinality.
 
         :param t: The threshold for the support of an element. If t is None, use the support threshold of the algorithm.
+        :param s: If True, return the smoothed estimate; otherwise, return the raw estimate.
         :return: The counter.
         """
         if not self._transformed:
             t = t if t is not None else self.s
             self.filter(lambda _, value: value >= (t - self.e) * self._n)
-            self.apply(lambda x, _: self._estimate(x, p))
+            self.apply(lambda x, _: self._estimate(x, s, r))
             self._transformed = True
         return self
     
@@ -750,23 +778,26 @@ class LossyCountingCounter(ApproximateCounter):
         """
         Prune the counter.
         """
+        prune = set()
         for element, count in self.counter.items():
-            prune = set()
             if count + self._bucket[element] <= self._bucket_id:
                 prune.add(element)
         for element in prune:
             del self.counter[element]
             del self._bucket[element]
 
-    def _estimate(self, element, p=False):
+    def _estimate(self, element, s=False, r=True):
+        # r to round
         """
         Return the estimate of the given element in the data stream.
         
         :param element: The element in the data stream.
-        :param p: If True, return the smoothed estimate; otherwise, return the raw estimate.
+        :param s: If True, return the smoothed estimate; otherwise, return the raw estimate.
+        :param r: If True, round the estimate.
         :return: The estimate of the given element in the data stream.
         """
-        return self.counter[element] if not p else (self.counter[element] / self._n + self.s)
+        e = self.counter[element] if not s else (self.counter[element] * (self.counter[element] / self._n + self.s))
+        return round(e) if r else e
 
 
 # HyperLogLog Counter
