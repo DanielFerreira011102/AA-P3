@@ -763,7 +763,7 @@ class LossyCountingCounter(ApproximateCounter):
         Return the estimate of the given element in the data stream.
         
         :param element: The element in the data stream.
-        :param p: If True, return the estimate as a probability.
+        :param p: If True, return the smoothed estimate; otherwise, return the raw estimate.
         :return: The estimate of the given element in the data stream.
         """
         return self.counter[element] if not p else (self.counter[element] / self._n + self.s)
