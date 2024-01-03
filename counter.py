@@ -486,7 +486,7 @@ class FixedProbabilityCounter(ApproximateCounter):
 
         :param element: The element in the data stream.
         """
-        if random.random() < self.p:
+        if random.random() <= self.p:
             self.counter[element] += 1
 
     def transform(self, r=True):
@@ -521,7 +521,6 @@ class FixedProbabilityCounter(ApproximateCounter):
         return round(e) if r else e
 
 
-
 class MorrisCounter(ApproximateCounter):
     """
     MorrisCounter is a probabilistic counter that uses the Morris Algorithm. It is designed to estimate the
@@ -552,7 +551,7 @@ class MorrisCounter(ApproximateCounter):
     
         :param element: The element in the data stream.
         """
-        if (self.counter[element] < self.b) or (random.random() < 1 / ((1 + self.a) ** self.counter[element])):
+        if (self.counter[element] < self.b) or (random.random() < 1 / ((1 + 1 / self.a) ** self.counter[element])):
             self.counter[element] += 1
 
     def transform(self, r=True):
@@ -582,7 +581,7 @@ class MorrisCounter(ApproximateCounter):
         :param element: The element in the data stream.
         :return: The estimate of the given element in the counter.
         """
-        e = (((1 + self.a) ** self.counter[element]) / self.a - 1) if self.counter[element] > self.b else self.counter[element]
+        e = (self.a * ((1 + 1 / self.a) ** self.counter[element] - 1)) if self.counter[element] > self.b else self.counter[element]
         return round(e) if r else e
 
 
@@ -613,7 +612,6 @@ class CountMinSketchCounter(ApproximateCounter):
         self._cache = {} if cache else None
         self._sketch = [[0] * self.w for _ in range(self.d)]
         self._seed = self._generate_seed(seed)
-
 
     def update(self, element):
         """
@@ -756,14 +754,25 @@ class LossyCountingCounter(ApproximateCounter):
             self._transformed = True
         return self
     
-    def top(self, k=10):
+    def top(self, k=10, t=None, s=False, r=True):
         """
         Return the top k elements in the counter.
 
         :param k: The number of elements to return.
+        :param t: The threshold for the support of an element. If t is None, use the support threshold of the algorithm.
+        :param s: If True, return the smoothed estimate; otherwise, return the raw estimate.
+        :param r: If True, round the estimate.
         :return: The top k elements in the counter.
         """
-        return sorted(self.items(), key=itemgetter(1), reverse=True)[:k]
+        if self._transformed:
+            res = self.items()
+        else:
+            res = set()
+            t = t if t is not None else self.s
+            for element, count in self.counter.items():
+                if count >= (t - self.e) * self._n:
+                    res.add((element, self._estimate(element, s, r)))
+        return sorted(res, key=itemgetter(1), reverse=True)[:k]
 
     def config(self):
         """
