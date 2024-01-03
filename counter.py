@@ -103,9 +103,11 @@ class Counter:
         """
         Total number of bits required to store the counter values.
 
-        :return: The total number of bits required to store the counter values.
+        :return: The total number of bits required to store the counter values and the counter keys.
         """
-        return sum([value.bit_length() for value in self.values()])
+        b_values = sum([value.bit_length() for value in self.values()])
+        b_keys = sum([len(key) * 8 for key in self.keys()])
+        return b_values + b_keys
 
     def filter(self, func):
         """
