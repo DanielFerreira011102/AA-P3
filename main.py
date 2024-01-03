@@ -12,16 +12,16 @@ sns.set_style("whitegrid")
 def main():
     work = 'republic'
     files = {
-        'en': {'fixed': f'results\{work}\en\\fixed.csv'},
-        'pt': {'fixed': f'results\{work}\pt\\fixed.csv'},
+        'en': {'morris': f'results\{work}\en\morris.csv'},
+        'pt': {'morris': f'results\{work}\pt\morris.csv'},
     }
 
     p = {'en': '#000', 'pt': '#aaa'}
 
-    en_df = pd.read_csv(files['en']['fixed'])
-    pt_df = pd.read_csv(files['pt']['fixed'])
+    en_df = pd.read_csv(files['en']['morris'])
+    pt_df = pd.read_csv(files['pt']['morris'])
 
-    p_values = en_df['probability']
+    p_values = en_df['alpha']
     en_total_bits_saved = en_df['BS']
     pt_total_bits_saved = pt_df['BS']
     en_mean_relative_error = en_df['mean_relative_error']
@@ -47,19 +47,25 @@ def main():
     plt.plot(p_values, pt_composite_score, label='Portuguese', color=p['pt'], marker='s')#
     # line for best p for each language
 # Vertical lines for the best ρ for each language
+    
+    max_en_composite_score = np.max(en_composite_score)
+    max_pt_composite_score = np.max(pt_composite_score)
+
+    print(f"Max composite score for English: {max_en_composite_score:.4f}")
+    print(f"Max composite score for Portuguese: {max_pt_composite_score:.4f}")
+    
     best_rho_en = p_values[np.argmax(en_composite_score)]
     best_rho_pt = p_values[np.argmax(pt_composite_score)]
+    plt.axvline(x=best_rho_en, color='blue', linestyle='--', label=r'Best $\alpha$ (English): $\frac{4}{5}$')
+    plt.axvline(x=best_rho_pt, color='red', linestyle='--', label=r'Best $\alpha$ (Portuguese): 1')
 
-    plt.axvline(x=best_rho_en, color='blue', linestyle='--', label=r'Best $\rho$ (English):' + f'{best_rho_en:.2f}')
-    plt.axvline(x=best_rho_pt, color='red', linestyle='--', label=r'Best $\rho$ (Portuguese):' + f'{best_rho_pt:.2f}')
-
-    plt.xlabel(r"$\rho$", fontsize=20)
+    plt.xlabel(r"$\alpha$", fontsize=20)
     plt.ylabel("BR", fontsize=20)
     plt.grid(linestyle='--')
     plt.legend(loc='best', frameon=False, fontsize=20)
     plt.tick_params(axis="both", which="major", labelsize=18)
     plt.tight_layout()
-    plt.savefig(f"images/republic/fixed_composite_score.png", bbox_inches='tight', format='png')
+    plt.savefig(f"images/republic/morris/composite_score.png", bbox_inches='tight', format='png')
     plt.show()
 
 if __name__ == "__main__":
