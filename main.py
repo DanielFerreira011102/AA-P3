@@ -12,41 +12,38 @@ sns.set_style("whitegrid")
 def main():
     work = 'republic'
     files = {
-        'en': {'morris': f'results\{work}\en\morris.csv'},
-        'pt': {'morris': f'results\{work}\pt\morris.csv'},
+        'en': {'morris': f'results\{work}\en\morris.csv', 'fixed': f'results\{work}\en\\fixed.csv', 'cms': f'results\{work}\en\cms.csv', 'lossy': f'results\{work}\en\lossy.csv'},
+        'pt': {'morris': f'results\{work}\pt\morris.csv', 'fixed': f'results\{work}\pt\\fixed.csv', 'cms': f'results\{work}\pt\cms.csv', 'lossy': f'results\{work}\pt\lossy.csv'}
     }
 
     p = {'en': '#000', 'pt': '#aaa'}
 
-    en_df = pd.read_csv(files['en']['morris'])
-    pt_df = pd.read_csv(files['pt']['morris'])
+    alg = 'morris'
+
+    en_df = pd.read_csv(files['en'][alg])
+    pt_df = pd.read_csv(files['pt'][alg])
 
     p_values = en_df['alpha']
+    en_total_bits_required = en_df['BR']
+    pt_total_bits_required = pt_df['BR']
     en_total_bits_saved = en_df['BS']
     pt_total_bits_saved = pt_df['BS']
     en_mean_relative_error = en_df['mean_relative_error']
     pt_mean_relative_error = pt_df['mean_relative_error']
-
-    scaler = MinMaxScaler()
-    en_total_bits_saved_normalized = scaler.fit_transform(en_total_bits_saved.values.reshape(-1, 1))
-    pt_total_bits_saved_normalized = scaler.fit_transform(pt_total_bits_saved.values.reshape(-1, 1))
-    en_mean_relative_error_normalized = scaler.fit_transform(en_mean_relative_error.values.reshape(-1, 1))
-    pt_mean_relative_error_normalized = scaler.fit_transform(pt_mean_relative_error.values.reshape(-1, 1))
+    
+    alpha = 0.5
 
     en_composite_score = (
-        en_total_bits_saved_normalized - en_mean_relative_error_normalized
+        alpha * en_total_bits_saved + (1 - en_mean_relative_error) * (1 - alpha)
     )
     pt_composite_score = (
-        pt_total_bits_saved_normalized - pt_mean_relative_error_normalized
+        alpha *pt_total_bits_saved + (1 - pt_mean_relative_error) * (1 - alpha)
     )
+
     
-    # Plot the results
     plt.figure(figsize=(12, 8))
-    # color with s-
     plt.plot(p_values, en_composite_score, label='English', color=p['en'], marker='s')
     plt.plot(p_values, pt_composite_score, label='Portuguese', color=p['pt'], marker='s')#
-    # line for best p for each language
-# Vertical lines for the best ρ for each language
     
     max_en_composite_score = np.max(en_composite_score)
     max_pt_composite_score = np.max(pt_composite_score)
@@ -56,11 +53,21 @@ def main():
     
     best_rho_en = p_values[np.argmax(en_composite_score)]
     best_rho_pt = p_values[np.argmax(pt_composite_score)]
-    plt.axvline(x=best_rho_en, color='blue', linestyle='--', label=r'Best $\alpha$ (English): $\frac{4}{5}$')
-    plt.axvline(x=best_rho_pt, color='red', linestyle='--', label=r'Best $\alpha$ (Portuguese): 1')
+
+    print(f"Best alpha for English: {best_rho_en:.4f}")
+    print(f"Best alpha for Portuguese: {best_rho_pt:.4f}")
+
+    print(f"Bits saved for English with best alpha: {en_total_bits_saved[np.argmax(en_composite_score)]:.4f}")
+    print(f"Bits saved for Portuguese with best alpha: {pt_total_bits_saved[np.argmax(pt_composite_score)]:.4f}")
+
+    print(f"Mean relative error for English with best alpha: {en_mean_relative_error[np.argmax(en_composite_score)]:.4f}")
+    print(f"Mean relative error for Portuguese with best alpha: {pt_mean_relative_error[np.argmax(pt_composite_score)]:.4f}")
+
+    plt.axvline(x=best_rho_en, color='blue', linestyle='--', label=r'Best $\alpha$ (English): 12')
+    plt.axvline(x=best_rho_pt, color='red', linestyle='--', label=r'Best $\alpha$ (Portuguese): 14')
 
     plt.xlabel(r"$\alpha$", fontsize=20)
-    plt.ylabel("BR", fontsize=20)
+    plt.ylabel("CE", fontsize=20)
     plt.grid(linestyle='--')
     plt.legend(loc='best', frameon=False, fontsize=20)
     plt.tick_params(axis="both", which="major", labelsize=18)
