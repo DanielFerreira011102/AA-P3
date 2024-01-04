@@ -1,2 +1,20 @@
-Fixed probability counter : 1 / 32 Lossy-Count
-Adaptive Stochastic Counting
+The Morris Counter is a probabilistic counting algorithm that provides a more sophisticated approach compared to the Fixed Probability Counter. It utilizes a geometric distribution to determine the number of updates for each element, resulting in a more balanced estimation.
+
+In Algorithm \ref{alg:morris}, $C$ is the counter, and $\gamma$ is a user-defined parameter controlling the geometric distribution. The \texttt{Update} function increments the count of the specified element $x$ with a probability of $2^{-C[x]}$. The \texttt{Read} function returns an estimate of the true count based on the harmonic mean of the stored counts.
+
+
+deadline: 7 de janeiro
+cv: 8 de janeiro
+ed: 6 de janeiro
+
+FIXED
+(EN) p: 0.175, bs: 0.130307467057101, br: 594, mre: 0.090333009074445, ce: 0.519987228991328
+(PT) p: 0.03125, bs: 0.2529313232830821, br: 446, mre: 0.1637498520169448, ce: 0.5445907356330686
+
+CMS
+(EN) p: 1.0, e: 0.025, bs: 1.0, br: 0, mre: 1.0, ce: 0.5
+(PT) p: 1.0, e: 0.025, bs: 1.0, br: 0, mre: 1.0, ce: 0.5
+
+MORRIS
+(EN) a: 12.0, bs: 0.2679355783308931, br: 500, mre: 0.0494580308391145, ce: 0.6092387737458893
+(PT) a: 14.0, bs: 0.288107202680067, br: 425, mre: 0.039601760566692, ce: 0.6242527210566875

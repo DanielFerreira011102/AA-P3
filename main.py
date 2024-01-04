@@ -36,75 +36,46 @@ def main():
     pt_mean_relative_error = pt_df['mean_relative_error']
 
     alpha = 0.5
+    en_composite_score = (alpha * en_total_bits_saved + (1 - en_mean_relative_error) * (1 - alpha))
+    pt_composite_score = (alpha * pt_total_bits_saved + (1 - pt_mean_relative_error) * (1 - alpha))
 
-    en_composite_score = (
-        alpha * en_total_bits_saved + (1 - en_mean_relative_error) * (1 - alpha)
-    )
-    pt_composite_score = (
-        alpha * pt_total_bits_saved + (1 - pt_mean_relative_error) * (1 - alpha)
-    )
+    en_max_index = en_df.iloc[en_composite_score.idxmax()]
+    pt_max_index = pt_df.iloc[pt_composite_score.idxmax()]
+    print(f'(EN) p: {en_max_index["probability_of_failure"]}, e: {en_max_index["error_rate"]}, bs: {en_max_index["BS"]}, br: {en_max_index["BR"]}, mre: {en_max_index["mean_relative_error"]}, ce: {en_composite_score.max()}')
+    print(f'(PT) p: {pt_max_index["probability_of_failure"]}, e: {pt_max_index["error_rate"]}, bs: {pt_max_index["BS"]}, br: {pt_max_index["BR"]}, mre: {pt_max_index["mean_relative_error"]}, ce: {pt_composite_score.max()}')
 
-    # Plotting
-    plt.figure(figsize=(12, 8))
-
-    value_t = p_values
     en_value_s = en_composite_score
     pt_value_s = pt_composite_score
-    x_label = r'$\gamma$'
-    y_label = 'CE'
-    filename = 'ce_p'
+    y_label = r'$\gamma$'
+    x_label = r'$\varepsilon$'
+    bar_label = 'CE'
+    filename = bar_label.lower()
 
-    # Plot data points with alpha blending
-    plt.scatter(value_t, en_value_s, color=palette['en'], alpha=0.05, edgecolors='none')
-    plt.scatter(value_t, pt_value_s, color=palette['pt'], alpha=0.05, edgecolors='none')
+    fig, axes = plt.subplots(1, 2, sharex=True, sharey=True, layout="constrained", figsize=(14, 8))
 
-    unique_value_t = np.unique(value_t)
+    vmin = np.vstack([en_value_s,pt_value_s]).min()
+    vmax = np.vstack([en_value_s,pt_value_s]).max()
 
-    # Calculate average en_value_s and pt_value_s for each unique p_value
-    en_avg_scores = [np.mean(en_value_s[value_t == val]) for val in unique_value_t]
-    pt_avg_scores = [np.mean(pt_value_s[value_t == val]) for val in unique_value_t]
+    scatter_en = axes[0].scatter(en_df['error_rate'], en_df['probability_of_failure'], c=en_value_s, vmin=vmin, vmax=vmax, cmap='Greys', alpha=0.8)
+    axes[0].set_ylabel(y_label, fontsize=20)
+    # set axes tick label size
+    axes[0].tick_params(axis='both', which='major', labelsize=18)
 
-    # Fit a cubic spline for English
-    en_spline = CubicSpline(unique_value_t, en_avg_scores)
-    en_smoothed = en_spline(unique_value_t)
-    plt.plot(unique_value_t, en_smoothed, label='English', color=palette['en'], marker='s')
+    # change position to 20 to move the label to the right
+    axes[0].set_xlabel(x_label, fontsize=20)
+    axes[0].xaxis.set_label_coords(1.025, -0.04)
 
-    # Fit a cubic spline for Portuguese
-    pt_spline = CubicSpline(unique_value_t, pt_avg_scores)
-    pt_smoothed = pt_spline(unique_value_t)
-    plt.plot(unique_value_t, pt_smoothed, label='Portuguese', color=palette['pt'], marker='s')
+    scatter_pt = axes[1].scatter(en_df['error_rate'], en_df['probability_of_failure'], c=pt_value_s, vmin=vmin, vmax=vmax, cmap='Greys', alpha=0.8)
+    axes[1].tick_params(axis='both', which='major', labelsize=18)
 
-    max_en_value_s = np.max(en_value_s)
-    max_pt_value_s = np.max(pt_value_s)
+    cbar = fig.colorbar(scatter_pt)
+    cbar.ax.tick_params(labelsize=18)
+    cbar.ax.set_ylabel(bar_label, fontsize=20)
 
-    print(f"Max composite score for English: {max_en_value_s:.4f}")
-    print(f"Max composite score for Portuguese: {max_pt_value_s:.4f}")
+    axes[0].grid(True, linestyle='--')
+    axes[1].grid(True, linestyle='--')
 
-    best_e_en = value_t[np.argmax(en_value_s)]
-    best_e_pt = value_t[np.argmax(pt_value_s)]
-
-    best_p_en = p_values[np.argmax(en_value_s)]
-    best_p_pt = p_values[np.argmax(pt_value_s)]
-
-    print(f"Best e for English: {best_e_en:.4f}")
-    print(f"Best e for Portuguese: {best_e_pt:.4f}")
-
-    print(f"Best p for English: {best_p_en:.4f}")
-    print(f"Best p for Portuguese: {best_p_pt:.4f}")
-
-    print(f"Bits saved for English with best alpha: {en_total_bits_saved[np.argmax(en_value_s)]:.4f}")
-    print(f"Bits saved for Portuguese with best alpha: {pt_total_bits_saved[np.argmax(pt_value_s)]:.4f}")
-
-    plt.axvline(x=best_e_en, color='blue', linestyle='--', label=r'Best ' + x_label + ' (English): ' + f'{best_e_en:.4f}')
-    plt.axvline(x=best_e_pt, color='red', linestyle='--', label=r'Best ' + x_label + ' (Portuguese): ' + f'{best_e_pt:.4f}')
-
-    plt.xlabel(x_label, fontsize=20)
-    plt.ylabel(y_label, fontsize=20)
-    plt.grid(linestyle='--')
-    plt.legend(loc='best', frameon=False, fontsize=20)
-    plt.tick_params(axis="both", which="major", labelsize=18)
-    plt.tight_layout()
-    plt.savefig(f"images/republic/cms/{filename}.png", format="png", bbox_inches="tight")
+    plt.savefig(f'images/republic/cms/{filename}.png', format='png', bbox_inches='tight')
     plt.show()
 
 if __name__ == "__main__":
