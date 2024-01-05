@@ -7,7 +7,7 @@ sns.set_style("whitegrid")
 
 
 def main():
-    work = 'republic'
+    work = 'mere_christianity'
     files = {
         'en': {'morris': f'results\{work}\en\morris.csv', 'fixed': f'results\{work}\en\\fixed.csv', 'cms': f'results\{work}\en\cms.csv', 'lossy': f'results\{work}\en\lossy.csv', 'exact': f'results\{work}\en\exact.csv'},
         'pt': {'morris': f'results\{work}\pt\morris.csv', 'fixed': f'results\{work}\pt\\fixed.csv', 'cms': f'results\{work}\pt\cms.csv', 'lossy': f'results\{work}\pt\lossy.csv', 'exact': f'results\{work}\pt\exact.csv'}
@@ -21,12 +21,14 @@ def main():
     en_exact_counter = en_exact_df['counter'][0]
     pt_exact_counter = pt_exact_df['counter'][0]
 
+    print(en_exact_counter)
+
     alg = 'lossy'
 
     en_df = pd.read_csv(files['en'][alg])
     pt_df = pd.read_csv(files['pt'][alg])
 
-    s = 'counter' + '_' + 'transformed'
+    s = 'counter' + ('_transformed' if alg in ('lossy', 'cms') else '')
 
     en_df[s] = en_df[s].apply(eval)
     pt_df[s] = pt_df[s].apply(eval)
@@ -42,8 +44,8 @@ def main():
         - float: Average precision between the counters.
         """
 
-        c1 = list(dict(sorted(c1.items(), key=lambda item: item[1], reverse=True)).keys())
-        c2 = list(dict(sorted(c2.items(), key=lambda item: item[1], reverse=True)).keys())
+        c2 = list(sorted(c2.keys(), key=lambda item: (-c2[item], item)))
+        c1 = list(sorted(c1.keys(), key=lambda item: (-c1[item], c2.index(item))))
 
         n_pred = len(c1)
         n_true = len(c2)
@@ -53,7 +55,7 @@ def main():
         
         c1 = c1[:k]
         c2 = c2[:k]
-        
+
         score = 0
         hits = 0
 
@@ -66,13 +68,13 @@ def main():
     
     # add average precision column @ 10 @ 5 and @ 3
 
-    en_df['ap@10'] = en_df.apply(lambda x: average_precision(x['counter'], en_exact_counter, 10), axis=1)
-    en_df['ap@5'] = en_df.apply(lambda x: average_precision(x['counter'], en_exact_counter, 5), axis=1)
-    en_df['ap@3'] = en_df.apply(lambda x: average_precision(x['counter'], en_exact_counter, 3), axis=1)
+    en_df['ap@10'] = en_df.apply(lambda x: average_precision(x[s], en_exact_counter, 10), axis=1)
+    en_df['ap@5'] = en_df.apply(lambda x: average_precision(x[s], en_exact_counter, 5), axis=1)
+    en_df['ap@3'] = en_df.apply(lambda x: average_precision(x[s], en_exact_counter, 3), axis=1)
 
-    pt_df['ap@10'] = pt_df.apply(lambda x: average_precision(x['counter'], pt_exact_counter, 10), axis=1)
-    pt_df['ap@5'] = pt_df.apply(lambda x: average_precision(x['counter'], pt_exact_counter, 5), axis=1)
-    pt_df['ap@3'] = pt_df.apply(lambda x: average_precision(x['counter'], pt_exact_counter, 3), axis=1)
+    pt_df['ap@10'] = pt_df.apply(lambda x: average_precision(x[s], pt_exact_counter, 10), axis=1)
+    pt_df['ap@5'] = pt_df.apply(lambda x: average_precision(x[s], pt_exact_counter, 5), axis=1)
+    pt_df['ap@3'] = pt_df.apply(lambda x: average_precision(x[s], pt_exact_counter, 3), axis=1)
 
     en_df.to_csv(files['en'][alg], index=False)
     pt_df.to_csv(files['pt'][alg], index=False)

@@ -232,20 +232,17 @@ class CounterEvaluator:
         - float: Average precision between the counters.
         """
         
-        sorted_pred_counter = list(dict(sorted(self.pred_counter.items(), key=lambda item: item[1], reverse=True)).keys())
-        sorted_true_counter = list(dict(sorted(self.true_counter.items(), key=lambda item: item[1], reverse=True)).keys())
+        sorted_true_counter = list(sorted(self.true_counter.keys(), key=lambda item: (-self.true_counter[item], item)))
+        sorted_pred_counter = list(sorted(self.pred_counter.keys(), key=lambda item: (-self.pred_counter[item], sorted_true_counter.index(item))))
 
         n_pred = len(sorted_pred_counter)
         n_true = len(sorted_true_counter)
 
         if n_pred < k or n_true < k:
             return 0
-        
-        sorted_pred_counter = sorted_pred_counter[:k]
+
         sorted_true_counter = sorted_true_counter[:k]
-        
-        score = 0
-        hits = 0
+        sorted_pred_counter = sorted_pred_counter[:k]
 
         for i, item in enumerate(sorted_pred_counter):
             if item in sorted_true_counter:
@@ -266,7 +263,7 @@ class CounterEvaluator:
         """
         ...
     
-    def kendall_tau(self, k=10):
+    def normalized_kendall_tau(self, k=10):
         """
         Return the Kendall tau between the counters.
 
@@ -276,20 +273,9 @@ class CounterEvaluator:
         Returns:
         - float: Kendall tau between the counters.
         """
-        sorted_pred_counter = list(dict(sorted(self.pred_counter.items(), key=lambda item: item[1], reverse=True)).keys())
-        sorted_true_counter = list(dict(sorted(self.true_counter.items(), key=lambda item: item[1], reverse=True)).keys())
 
-        n_pred = len(sorted_pred_counter)
-        n_true = len(sorted_true_counter)
 
-        if n_pred < k or n_true < k:
-            return 0
         
-        sorted_pred_counter = sorted_pred_counter[:k]
-        sorted_true_counter = sorted_true_counter[:k]
-
-    
-
     def lazy(self):
         return {
             "explained_variance_score": self.explained_variance_score(),
