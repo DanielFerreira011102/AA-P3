@@ -1,4 +1,6 @@
 import math
+import random
+import string
 
 class CounterEvaluator:
     """
@@ -221,7 +223,7 @@ class CounterEvaluator:
         nash_sutcliffe_efficiency = 1 - numerator / denominator
         return nash_sutcliffe_efficiency
     
-    def average_precision(self, k=10):
+    def average_precision(self, k=10, max_trials=1000):
         """
         Return the average precision between the counters.
 
@@ -231,26 +233,41 @@ class CounterEvaluator:
         Returns:
         - float: Average precision between the counters.
         """
+
+        def unrelevant_element():
+            combined_characters = string.ascii_letters + string.digits
+            for _ in range(max_trials):
+                new_element = ''.join(random.choices(combined_characters, k=len(combined_characters) // 2))
+                if new_element not in relevant:
+                    return new_element
+                
         relevant = list(sorted(self.true_counter.keys(), key=lambda item: (-self.true_counter[item], item)))
         retrieved = list(sorted(self.pred_counter.keys(), key=lambda item: (-self.pred_counter[item], relevant.index(item))))
 
         n_pred = len(retrieved)
         n_true = len(relevant)
 
-        if n_pred < k or n_true < k:
-            return 0
+        k = min(k, n_true)
 
         retrieved = retrieved[:k]
-        relevant = relevant[:k]
+
+        if k > n_pred:
+            fill_char = unrelevant_element()
+            retrieved += [fill_char] * (k - n_pred)
+
+        relevant = relevant[:len(retrieved)]
+
+        score = 0.0
+        hits = 0.0
 
         for i, item in enumerate(retrieved):
             if item in relevant:
                 hits += 1
                 score += hits / (i + 1)
 
-        return score / min(n_pred, k)
+        return score / k
     
-    def normalized_discounted_cumulative_gain(self, k=10):
+    def normalized_discounted_cumulative_gain(self, relevance_method='standard', k=10, max_trials=1000):
         """
         Return the normalized discounted cumulative gain between the counters.
 
@@ -260,30 +277,53 @@ class CounterEvaluator:
         Returns:
         - float: Normalized discounted cumulative gain between the counters.
         """
+
+        def unrelevant_element():
+            combined_characters = string.ascii_letters + string.digits
+            for _ in range(max_trials):
+                new_element = ''.join(random.choices(combined_characters, k=len(combined_characters) // 2))
+                if new_element not in relevant:
+                    return new_element
+
+        def relevance_score(doc):
+            if relevance_method == 'linear':
+                return len(relevant) - relevant.index(doc)
+            elif relevance_method == 'inverse_log':
+                return 1 / math.log2(relevant.index(doc) + 2)
+            elif relevance_method == 'inverse_rank':
+                return 1 / (relevant.index(doc) + 1)
+            elif relevance_method == 'standard':
+                return 1
+            raise ValueError("Invalid relevance scoring method")
+        
         relevant = list(sorted(self.true_counter.keys(), key=lambda item: (-self.true_counter[item], item)))
         retrieved = list(sorted(self.pred_counter.keys(), key=lambda item: (-self.pred_counter[item], relevant.index(item))))
         
         n_pred = len(retrieved)
         n_true = len(relevant)
 
-        if n_pred < k or n_true < k:
-            return 0
+        k = min(k, n_true)
 
         retrieved = retrieved[:k]
-        relevant = relevant[:k]
 
-        rels = [(1 / (relevant.index(doc) + 1)) if doc in relevant else 0 for doc in retrieved]
+        if k > n_pred:
+            fill_char = unrelevant_element()
+            retrieved += [fill_char] * (k - n_pred)
 
-        wdcg = rels[0] + sum([(rels[i]) / math.log2(i + 1) for i in range(1, len(rels))])
+        relevant = relevant[:len(retrieved)]
 
-        ideal_rels = [(1 / (relevant.index(doc) + 1)) if doc in relevant else 0 for doc in relevant]
+        rels = [relevance_score(doc) if doc in relevant else 0 for doc in retrieved]
+
+        dcg = rels[0] + sum([(rels[i]) / math.log2(i + 1) for i in range(1, len(rels))])
+
+        ideal_rels = [relevance_score(doc) if doc in relevant else 0 for doc in relevant]
         idcg = ideal_rels[0] + sum([(ideal_rels[i]) / math.log2(i + 1) for i in range(1, len(ideal_rels))])
         
-        wdcg = wdcg / idcg if idcg > 0 else 0
+        ndcg = dcg / idcg if idcg > 0 else 0
 
-        return wdcg
+        return ndcg
     
-    def accuracy(self, k=10):
+    def accuracy(self, k=10, max_trials=1000):
         """
         Return the accuracy between the counters.
 
@@ -293,25 +333,71 @@ class CounterEvaluator:
         Returns:
         - float: Accuracy between the counters.
         """
+        def unrelevant_element():
+            combined_characters = string.ascii_letters + string.digits
+            for _ in range(max_trials):
+                new_element = ''.join(random.choices(combined_characters, k=len(combined_characters) // 2))
+                if new_element not in relevant:
+                    return new_element
+                
         relevant = list(sorted(self.true_counter.keys(), key=lambda item: (-self.true_counter[item], item)))
         retrieved = list(sorted(self.pred_counter.keys(), key=lambda item: (-self.pred_counter[item], relevant.index(item))))
         
         n_pred = len(retrieved)
         n_true = len(relevant)
 
-        if n_pred < k or n_true < k:
-            return 0
+        k = min(k, n_true)
 
         retrieved = retrieved[:k]
-        relevant = relevant[:k]
 
-        hits = 0
+        if k > n_pred:
+            fill_char = unrelevant_element()
+            retrieved += [fill_char] * (k - n_pred)
+
+        relevant = relevant[:len(retrieved)]
+
+        hits = 0.0
+        
         for i, item in enumerate(retrieved):
-            if item in relevant:
+            if item == relevant[i]:
                 hits += 1
 
         return hits / k
 
+    def kendall_tau(self):
+        relevant = list(sorted(self.true_counter.keys(), key=lambda item: (-self.true_counter[item], item)))
+        retrieved = list(sorted(self.pred_counter.keys(), key=lambda item: (-self.pred_counter[item], relevant.index(item))))
+    
+        ranking = {item: i for i, item in enumerate(relevant)}
+
+        retrieved = [ranking[doc] for doc in retrieved]
+        relevant = [ranking[doc] for doc in relevant]
+
+        n = len(retrieved)
+
+        if n != len(relevant):
+            return float('nan')
+
+        concordant_pairs = 0
+        discordant_pairs = 0
+
+        for i in range(n):
+            for j in range(i + 1, n):
+                rel_i, rel_j = relevant[i], relevant[j]
+                ret_i, ret_j = retrieved[i], retrieved[j]
+
+                concordant = (rel_i < rel_j and ret_i < ret_j) or (rel_i > rel_j and ret_i > ret_j)
+                discordant = (rel_i < rel_j and ret_i > ret_j) or (rel_i > rel_j and ret_i < ret_j)
+
+                if concordant:
+                    concordant_pairs += 1
+                elif discordant:
+                    discordant_pairs += 1
+
+        score = (concordant_pairs - discordant_pairs) / (concordant_pairs + discordant_pairs)
+
+        return score
+    
     def lazy(self):
         return {
             "explained_variance_score": self.explained_variance_score(),
@@ -333,4 +419,5 @@ class CounterEvaluator:
             "average_precision": self.average_precision(),
             "normalized_discounted_cumulative_gain": self.normalized_discounted_cumulative_gain(),
             "accuracy": self.accuracy(),
+            "kendall_tau": self.kendall_tau()
         }

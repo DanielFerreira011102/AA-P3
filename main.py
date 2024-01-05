@@ -1,7 +1,10 @@
+import random
+import string
 import numpy as np
 import pandas as pd
 import seaborn as sns
 from matplotlib import pyplot as plt
+from scipy.stats import kendalltau
 sns.set_style("whitegrid")
 
 
@@ -22,7 +25,7 @@ def main():
 
     print(en_exact_counter)
 
-    alg = 'fixed'
+    alg = 'lossy'
     print(alg)
 
     en_df = pd.read_csv(files['en'][alg])
@@ -33,35 +36,46 @@ def main():
     en_df[s] = en_df[s].apply(eval)
     pt_df[s] = pt_df[s].apply(eval)
     
-    def acc(retrieved, relevant, k):
+    def ndcg(retrieved, relevant, k=10, max_trials=1000):
+        def unrelevant_element():
+            combined_characters = string.ascii_letters + string.digits
+            for _ in range(max_trials):
+                new_element = ''.join(random.choices(combined_characters, k=len(combined_characters) // 2))
+                if new_element not in relevant:
+                    return new_element
+
         relevant = list(sorted(relevant.keys(), key=lambda item: (-relevant[item], item)))
         retrieved = list(sorted(retrieved.keys(), key=lambda item: (-retrieved[item], relevant.index(item))))
-
+        
         n_pred = len(retrieved)
         n_true = len(relevant)
 
-        if n_pred < k or n_true < k:
-            return 0
-        
+        k = min(k, n_true)
+
         retrieved = retrieved[:k]
-        relevant = relevant[:k]
 
-        rels = [(1 / (relevant.index(doc) + 1)) if doc in relevant else 0 for doc in retrieved]
-        wdcg = rels[0] + sum([(rels[i]) / np.log2(i + 1) for i in range(1, len(rels))])
-        ideal_rels = [(1 / (relevant.index(doc) + 1)) if doc in relevant else 0 for doc in relevant]
-        idcg = ideal_rels[0] + sum([(ideal_rels[i]) / np.log2(i + 1) for i in range(1, len(ideal_rels))])
+        if k > n_pred:
+            fill_char = unrelevant_element()
+            retrieved += [fill_char] * (k - n_pred)
+
+        relevant = relevant[:len(retrieved)]
+
+        hits = 0.0
         
-        wdcg = wdcg / idcg if idcg > 0 else 0
+        for i, item in enumerate(retrieved):
+            if item == relevant[i]:
+                hits += 1
 
-        return wdcg
+        return hits / k
+    
+    en_df['acc@10'] = en_df[s].apply(lambda x: ndcg(x, en_exact_counter, k=10))
+    pt_df['acc@10'] = pt_df[s].apply(lambda x: ndcg(x, pt_exact_counter, k=10))
 
-    en_df['ndcg@10'] = en_df.apply(lambda x: acc(x[s], en_exact_counter, 10), axis=1)
-    en_df['ndcg@5'] = en_df.apply(lambda x: acc(x[s], en_exact_counter, 5), axis=1)
-    en_df['ndcg@3'] = en_df.apply(lambda x: acc(x[s], en_exact_counter, 3), axis=1)
+    en_df['acc@5'] = en_df[s].apply(lambda x: ndcg(x, en_exact_counter, k=5))
+    pt_df['acc@5'] = pt_df[s].apply(lambda x: ndcg(x, pt_exact_counter, k=5))
 
-    pt_df['ndcg@10'] = pt_df.apply(lambda x: acc(x[s], pt_exact_counter, 10), axis=1)
-    pt_df['ndcg@5'] = pt_df.apply(lambda x: acc(x[s], pt_exact_counter, 5), axis=1)
-    pt_df['ndcg@3'] = pt_df.apply(lambda x: acc(x[s], pt_exact_counter, 3), axis=1)
+    en_df['acc@3'] = en_df[s].apply(lambda x: ndcg(x, en_exact_counter, k=3))
+    pt_df['acc@3'] = pt_df[s].apply(lambda x: ndcg(x, pt_exact_counter, k=3))
 
     en_df.to_csv(files['en'][alg], index=False)
     pt_df.to_csv(files['pt'][alg], index=False)
