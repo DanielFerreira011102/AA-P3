@@ -2,7 +2,6 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 from matplotlib import pyplot as plt
-
 sns.set_style("whitegrid")
 
 
@@ -23,7 +22,8 @@ def main():
 
     print(en_exact_counter)
 
-    alg = 'lossy'
+    alg = 'fixed'
+    print(alg)
 
     en_df = pd.read_csv(files['en'][alg])
     pt_df = pd.read_csv(files['pt'][alg])
@@ -33,48 +33,35 @@ def main():
     en_df[s] = en_df[s].apply(eval)
     pt_df[s] = pt_df[s].apply(eval)
     
-    def average_precision(c1, c2, k=10):
-        """
-        Return the average precision between the counters.
+    def acc(retrieved, relevant, k):
+        relevant = list(sorted(relevant.keys(), key=lambda item: (-relevant[item], item)))
+        retrieved = list(sorted(retrieved.keys(), key=lambda item: (-retrieved[item], relevant.index(item))))
 
-        Parameters:
-        - k (int): Number of top elements to consider.
-
-        Returns:
-        - float: Average precision between the counters.
-        """
-
-        c2 = list(sorted(c2.keys(), key=lambda item: (-c2[item], item)))
-        c1 = list(sorted(c1.keys(), key=lambda item: (-c1[item], c2.index(item))))
-
-        n_pred = len(c1)
-        n_true = len(c2)
+        n_pred = len(retrieved)
+        n_true = len(relevant)
 
         if n_pred < k or n_true < k:
             return 0
         
-        c1 = c1[:k]
-        c2 = c2[:k]
+        retrieved = retrieved[:k]
+        relevant = relevant[:k]
 
-        score = 0
-        hits = 0
+        rels = [(1 / (relevant.index(doc) + 1)) if doc in relevant else 0 for doc in retrieved]
+        wdcg = rels[0] + sum([(rels[i]) / np.log2(i + 1) for i in range(1, len(rels))])
+        ideal_rels = [(1 / (relevant.index(doc) + 1)) if doc in relevant else 0 for doc in relevant]
+        idcg = ideal_rels[0] + sum([(ideal_rels[i]) / np.log2(i + 1) for i in range(1, len(ideal_rels))])
+        
+        wdcg = wdcg / idcg if idcg > 0 else 0
 
-        for i, item in enumerate(c1):
-            if item in c2:
-                hits += 1
-                score += hits / (i + 1)
+        return wdcg
 
-        return score / min(n_true, k)
-    
-    # add average precision column @ 10 @ 5 and @ 3
+    en_df['ndcg@10'] = en_df.apply(lambda x: acc(x[s], en_exact_counter, 10), axis=1)
+    en_df['ndcg@5'] = en_df.apply(lambda x: acc(x[s], en_exact_counter, 5), axis=1)
+    en_df['ndcg@3'] = en_df.apply(lambda x: acc(x[s], en_exact_counter, 3), axis=1)
 
-    en_df['ap@10'] = en_df.apply(lambda x: average_precision(x[s], en_exact_counter, 10), axis=1)
-    en_df['ap@5'] = en_df.apply(lambda x: average_precision(x[s], en_exact_counter, 5), axis=1)
-    en_df['ap@3'] = en_df.apply(lambda x: average_precision(x[s], en_exact_counter, 3), axis=1)
-
-    pt_df['ap@10'] = pt_df.apply(lambda x: average_precision(x[s], pt_exact_counter, 10), axis=1)
-    pt_df['ap@5'] = pt_df.apply(lambda x: average_precision(x[s], pt_exact_counter, 5), axis=1)
-    pt_df['ap@3'] = pt_df.apply(lambda x: average_precision(x[s], pt_exact_counter, 3), axis=1)
+    pt_df['ndcg@10'] = pt_df.apply(lambda x: acc(x[s], pt_exact_counter, 10), axis=1)
+    pt_df['ndcg@5'] = pt_df.apply(lambda x: acc(x[s], pt_exact_counter, 5), axis=1)
+    pt_df['ndcg@3'] = pt_df.apply(lambda x: acc(x[s], pt_exact_counter, 3), axis=1)
 
     en_df.to_csv(files['en'][alg], index=False)
     pt_df.to_csv(files['pt'][alg], index=False)

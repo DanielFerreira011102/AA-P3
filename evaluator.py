@@ -231,25 +231,24 @@ class CounterEvaluator:
         Returns:
         - float: Average precision between the counters.
         """
-        
-        sorted_true_counter = list(sorted(self.true_counter.keys(), key=lambda item: (-self.true_counter[item], item)))
-        sorted_pred_counter = list(sorted(self.pred_counter.keys(), key=lambda item: (-self.pred_counter[item], sorted_true_counter.index(item))))
+        relevant = list(sorted(self.true_counter.keys(), key=lambda item: (-self.true_counter[item], item)))
+        retrieved = list(sorted(self.pred_counter.keys(), key=lambda item: (-self.pred_counter[item], relevant.index(item))))
 
-        n_pred = len(sorted_pred_counter)
-        n_true = len(sorted_true_counter)
+        n_pred = len(retrieved)
+        n_true = len(relevant)
 
         if n_pred < k or n_true < k:
             return 0
 
-        sorted_true_counter = sorted_true_counter[:k]
-        sorted_pred_counter = sorted_pred_counter[:k]
+        retrieved = retrieved[:k]
+        relevant = relevant[:k]
 
-        for i, item in enumerate(sorted_pred_counter):
-            if item in sorted_true_counter:
+        for i, item in enumerate(retrieved):
+            if item in relevant:
                 hits += 1
                 score += hits / (i + 1)
 
-        return score / min(n_true, k)
+        return score / min(n_pred, k)
     
     def normalized_discounted_cumulative_gain(self, k=10):
         """
@@ -261,21 +260,58 @@ class CounterEvaluator:
         Returns:
         - float: Normalized discounted cumulative gain between the counters.
         """
-        ...
+        relevant = list(sorted(self.true_counter.keys(), key=lambda item: (-self.true_counter[item], item)))
+        retrieved = list(sorted(self.pred_counter.keys(), key=lambda item: (-self.pred_counter[item], relevant.index(item))))
+        
+        n_pred = len(retrieved)
+        n_true = len(relevant)
+
+        if n_pred < k or n_true < k:
+            return 0
+
+        retrieved = retrieved[:k]
+        relevant = relevant[:k]
+
+        rels = [(1 / (relevant.index(doc) + 1)) if doc in relevant else 0 for doc in retrieved]
+
+        wdcg = rels[0] + sum([(rels[i]) / math.log2(i + 1) for i in range(1, len(rels))])
+
+        ideal_rels = [(1 / (relevant.index(doc) + 1)) if doc in relevant else 0 for doc in relevant]
+        idcg = ideal_rels[0] + sum([(ideal_rels[i]) / math.log2(i + 1) for i in range(1, len(ideal_rels))])
+        
+        wdcg = wdcg / idcg if idcg > 0 else 0
+
+        return wdcg
     
-    def normalized_kendall_tau(self, k=10):
+    def accuracy(self, k=10):
         """
-        Return the Kendall tau between the counters.
+        Return the accuracy between the counters.
 
         Parameters:
         - k (int): Number of top elements to consider.
 
         Returns:
-        - float: Kendall tau between the counters.
+        - float: Accuracy between the counters.
         """
-
-
+        relevant = list(sorted(self.true_counter.keys(), key=lambda item: (-self.true_counter[item], item)))
+        retrieved = list(sorted(self.pred_counter.keys(), key=lambda item: (-self.pred_counter[item], relevant.index(item))))
         
+        n_pred = len(retrieved)
+        n_true = len(relevant)
+
+        if n_pred < k or n_true < k:
+            return 0
+
+        retrieved = retrieved[:k]
+        relevant = relevant[:k]
+
+        hits = 0
+        for i, item in enumerate(retrieved):
+            if item in relevant:
+                hits += 1
+
+        return hits / k
+
     def lazy(self):
         return {
             "explained_variance_score": self.explained_variance_score(),
@@ -294,5 +330,7 @@ class CounterEvaluator:
             "willmott_index": self.willmott_index(),
             "confidence_index": self.confidence_index(),
             "nash_sutcliffe_efficiency": self.nash_sutcliffe_efficiency(),
-            "average_precision": self.average_precision()
+            "average_precision": self.average_precision(),
+            "normalized_discounted_cumulative_gain": self.normalized_discounted_cumulative_gain(),
+            "accuracy": self.accuracy(),
         }
