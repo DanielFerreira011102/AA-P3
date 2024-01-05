@@ -221,6 +221,75 @@ class CounterEvaluator:
         nash_sutcliffe_efficiency = 1 - numerator / denominator
         return nash_sutcliffe_efficiency
     
+    def average_precision(self, k=10):
+        """
+        Return the average precision between the counters.
+
+        Parameters:
+        - k (int): Number of top elements to consider.
+
+        Returns:
+        - float: Average precision between the counters.
+        """
+        
+        sorted_pred_counter = list(dict(sorted(self.pred_counter.items(), key=lambda item: item[1], reverse=True)).keys())
+        sorted_true_counter = list(dict(sorted(self.true_counter.items(), key=lambda item: item[1], reverse=True)).keys())
+
+        n_pred = len(sorted_pred_counter)
+        n_true = len(sorted_true_counter)
+
+        if n_pred < k or n_true < k:
+            return 0
+        
+        sorted_pred_counter = sorted_pred_counter[:k]
+        sorted_true_counter = sorted_true_counter[:k]
+        
+        score = 0
+        hits = 0
+
+        for i, item in enumerate(sorted_pred_counter):
+            if item in sorted_true_counter:
+                hits += 1
+                score += hits / (i + 1)
+
+        return score / min(n_true, k)
+    
+    def normalized_discounted_cumulative_gain(self, k=10):
+        """
+        Return the normalized discounted cumulative gain between the counters.
+
+        Parameters:
+        - k (int): Number of top elements to consider.
+
+        Returns:
+        - float: Normalized discounted cumulative gain between the counters.
+        """
+        ...
+    
+    def kendall_tau(self, k=10):
+        """
+        Return the Kendall tau between the counters.
+
+        Parameters:
+        - k (int): Number of top elements to consider.
+
+        Returns:
+        - float: Kendall tau between the counters.
+        """
+        sorted_pred_counter = list(dict(sorted(self.pred_counter.items(), key=lambda item: item[1], reverse=True)).keys())
+        sorted_true_counter = list(dict(sorted(self.true_counter.items(), key=lambda item: item[1], reverse=True)).keys())
+
+        n_pred = len(sorted_pred_counter)
+        n_true = len(sorted_true_counter)
+
+        if n_pred < k or n_true < k:
+            return 0
+        
+        sorted_pred_counter = sorted_pred_counter[:k]
+        sorted_true_counter = sorted_true_counter[:k]
+
+    
+
     def lazy(self):
         return {
             "explained_variance_score": self.explained_variance_score(),
@@ -238,5 +307,6 @@ class CounterEvaluator:
             "pearson_correlation_coefficient": self.pearson_correlation_coefficient(),
             "willmott_index": self.willmott_index(),
             "confidence_index": self.confidence_index(),
-            "nash_sutcliffe_efficiency": self.nash_sutcliffe_efficiency()
+            "nash_sutcliffe_efficiency": self.nash_sutcliffe_efficiency(),
+            "average_precision": self.average_precision()
         }

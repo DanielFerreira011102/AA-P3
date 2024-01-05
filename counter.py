@@ -767,13 +767,11 @@ class LossyCountingCounter(ApproximateCounter):
         :return: The top k elements in the counter.
         """
         if self._transformed:
-            res = self.items()
+            res = self.counter.items()
         else:
-            res = set()
             t = t if t is not None else self.s
-            for element, count in self.counter.items():
-                if count >= (t - self.e) * self._n:
-                    res.add((element, self._estimate(element, s, r)))
+            res = filter(lambda x: x[1] >= (t - self.e) * self._n, self.counter.items())
+            res = map(lambda x: (x[0], self._estimate(x[0], s, r)), res)
         return sorted(res, key=itemgetter(1), reverse=True)[:k]
 
     def config(self):
@@ -797,7 +795,6 @@ class LossyCountingCounter(ApproximateCounter):
             del self._bucket[element]
 
     def _estimate(self, element, s=False, r=True):
-        # r to round
         """
         Return the estimate of the given element in the data stream.
         

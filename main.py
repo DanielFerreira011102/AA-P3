@@ -1,12 +1,7 @@
-import copy
-import string
 import numpy as np
 import pandas as pd
 import seaborn as sns
 from matplotlib import pyplot as plt
-from sklearn.preprocessing import MinMaxScaler
-from scipy.interpolate import make_interp_spline, BSpline
-from scipy.interpolate import CubicSpline
 
 sns.set_style("whitegrid")
 
@@ -14,41 +9,95 @@ sns.set_style("whitegrid")
 def main():
     work = 'republic'
     files = {
-        'en': {'morris': f'results\{work}\en\morris.csv', 'fixed': f'results\{work}\en\\fixed.csv', 'cms': f'results\{work}\en\cms.csv', 'lossy': f'results\{work}\en\lossy.csv'},
-        'pt': {'morris': f'results\{work}\pt\morris.csv', 'fixed': f'results\{work}\pt\\fixed.csv', 'cms': f'results\{work}\pt\cms.csv', 'lossy': f'results\{work}\pt\lossy.csv'}
+        'en': {'morris': f'results\{work}\en\morris.csv', 'fixed': f'results\{work}\en\\fixed.csv', 'cms': f'results\{work}\en\cms.csv', 'lossy': f'results\{work}\en\lossy.csv', 'exact': f'results\{work}\en\exact.csv'},
+        'pt': {'morris': f'results\{work}\pt\morris.csv', 'fixed': f'results\{work}\pt\\fixed.csv', 'cms': f'results\{work}\pt\cms.csv', 'lossy': f'results\{work}\pt\lossy.csv', 'exact': f'results\{work}\pt\exact.csv'}
     }
 
-    # Define color palette
-    palette = {'en': '#000', 'pt': '#aaa'}
+    en_exact_df = pd.read_csv(files['en']['exact'])
+    pt_exact_df = pd.read_csv(files['pt']['exact'])
 
-    alg = 'cms'
+    en_exact_df['counter'] = en_exact_df['counter'].apply(eval)
+    pt_exact_df['counter'] = pt_exact_df['counter'].apply(eval)
+    en_exact_counter = en_exact_df['counter'][0]
+    pt_exact_counter = pt_exact_df['counter'][0]
+
+    alg = 'lossy'
 
     en_df = pd.read_csv(files['en'][alg])
     pt_df = pd.read_csv(files['pt'][alg])
 
+    s = 'counter' + '_' + 'transformed'
+
+    en_df[s] = en_df[s].apply(eval)
+    pt_df[s] = pt_df[s].apply(eval)
+    
+    def average_precision(c1, c2, k=10):
+        """
+        Return the average precision between the counters.
+
+        Parameters:
+        - k (int): Number of top elements to consider.
+
+        Returns:
+        - float: Average precision between the counters.
+        """
+
+        c1 = list(dict(sorted(c1.items(), key=lambda item: item[1], reverse=True)).keys())
+        c2 = list(dict(sorted(c2.items(), key=lambda item: item[1], reverse=True)).keys())
+
+        n_pred = len(c1)
+        n_true = len(c2)
+
+        if n_pred < k or n_true < k:
+            return 0
+        
+        c1 = c1[:k]
+        c2 = c2[:k]
+        
+        score = 0
+        hits = 0
+
+        for i, item in enumerate(c1):
+            if item in c2:
+                hits += 1
+                score += hits / (i + 1)
+
+        return score / min(n_true, k)
+    
+    # add average precision column @ 10 @ 5 and @ 3
+
+    en_df['ap@10'] = en_df.apply(lambda x: average_precision(x['counter'], en_exact_counter, 10), axis=1)
+    en_df['ap@5'] = en_df.apply(lambda x: average_precision(x['counter'], en_exact_counter, 5), axis=1)
+    en_df['ap@3'] = en_df.apply(lambda x: average_precision(x['counter'], en_exact_counter, 3), axis=1)
+
+    pt_df['ap@10'] = pt_df.apply(lambda x: average_precision(x['counter'], pt_exact_counter, 10), axis=1)
+    pt_df['ap@5'] = pt_df.apply(lambda x: average_precision(x['counter'], pt_exact_counter, 5), axis=1)
+    pt_df['ap@3'] = pt_df.apply(lambda x: average_precision(x['counter'], pt_exact_counter, 3), axis=1)
+
+    en_df.to_csv(files['en'][alg], index=False)
+    pt_df.to_csv(files['pt'][alg], index=False)
+
+    return
+
     e_values = en_df['error_rate']
-    p_values = en_df['probability_of_failure']
+    s_values = en_df['support_threshold']
     en_total_bits_required = en_df['BR']
     pt_total_bits_required = pt_df['BR']
     en_total_bits_saved = en_df['BS']
     pt_total_bits_saved = pt_df['BS']
-    en_mean_relative_error = en_df['mean_relative_error']
-    pt_mean_relative_error = pt_df['mean_relative_error']
+    en_df['counter'] = en_df['counter'].apply(eval)
+    pt_df['counter'] = pt_df['counter'].apply(eval)
 
-    alpha = 0.5
-    en_composite_score = (alpha * en_total_bits_saved + (1 - en_mean_relative_error) * (1 - alpha))
-    pt_composite_score = (alpha * pt_total_bits_saved + (1 - pt_mean_relative_error) * (1 - alpha))
+    en_counter = en_df['counter']
+    pt_counter = pt_df['counter']
+    
+    palette = {'en': '#000', 'pt': '#aaa'}
 
-    en_max_index = en_df.iloc[en_composite_score.idxmax()]
-    pt_max_index = pt_df.iloc[pt_composite_score.idxmax()]
-    print(f'(EN) p: {en_max_index["probability_of_failure"]}, e: {en_max_index["error_rate"]}, bs: {en_max_index["BS"]}, br: {en_max_index["BR"]}, mre: {en_max_index["mean_relative_error"]}, ce: {en_composite_score.max()}')
-    print(f'(PT) p: {pt_max_index["probability_of_failure"]}, e: {pt_max_index["error_rate"]}, bs: {pt_max_index["BS"]}, br: {pt_max_index["BR"]}, mre: {pt_max_index["mean_relative_error"]}, ce: {pt_composite_score.max()}')
-
-    en_value_s = en_composite_score
-    pt_value_s = pt_composite_score
-    y_label = r'$\gamma$'
+    en_value_s = en_total_bits_required
+    pt_value_s = pt_total_bits_required
+    y_label = r'$\sigma$'
     x_label = r'$\varepsilon$'
-    bar_label = 'CE'
+    bar_label = 'BR'
     filename = bar_label.lower()
 
     fig, axes = plt.subplots(1, 2, sharex=True, sharey=True, layout="constrained", figsize=(14, 8))
@@ -56,7 +105,7 @@ def main():
     vmin = np.vstack([en_value_s,pt_value_s]).min()
     vmax = np.vstack([en_value_s,pt_value_s]).max()
 
-    scatter_en = axes[0].scatter(en_df['error_rate'], en_df['probability_of_failure'], c=en_value_s, vmin=vmin, vmax=vmax, cmap='Greys', alpha=0.8)
+    scatter_en = axes[0].scatter(en_df['error_rate'], en_df['support_threshold'], c=en_value_s, vmin=vmin, vmax=vmax, cmap='Greys', alpha=0.8)
     axes[0].set_ylabel(y_label, fontsize=20)
     # set axes tick label size
     axes[0].tick_params(axis='both', which='major', labelsize=18)
@@ -65,7 +114,7 @@ def main():
     axes[0].set_xlabel(x_label, fontsize=20)
     axes[0].xaxis.set_label_coords(1.025, -0.04)
 
-    scatter_pt = axes[1].scatter(en_df['error_rate'], en_df['probability_of_failure'], c=pt_value_s, vmin=vmin, vmax=vmax, cmap='Greys', alpha=0.8)
+    scatter_pt = axes[1].scatter(en_df['error_rate'], en_df['support_threshold'], c=pt_value_s, vmin=vmin, vmax=vmax, cmap='Greys', alpha=0.8)
     axes[1].tick_params(axis='both', which='major', labelsize=18)
 
     cbar = fig.colorbar(scatter_pt)
@@ -75,7 +124,7 @@ def main():
     axes[0].grid(True, linestyle='--')
     axes[1].grid(True, linestyle='--')
 
-    plt.savefig(f'images/republic/cms/{filename}.png', format='png', bbox_inches='tight')
+    plt.savefig(f'images/republic/lossy/{filename}.png', format='png', bbox_inches='tight')
     plt.show()
 
 if __name__ == "__main__":
