@@ -238,6 +238,8 @@ class CounterEvaluator:
         Returns:
         - float: Average precision between the counters.
         """
+        if len(set(self.true_counter.values())) == 1:
+            return 0
 
         def unrelevant_element():
             combined_characters = string.ascii_letters + string.digits
@@ -284,6 +286,9 @@ class CounterEvaluator:
         Returns:
         - float: Normalized discounted cumulative gain between the counters.
         """
+
+        if len(set(self.true_counter.values())) == 1:
+            return 0
 
         def unrelevant_element():
             combined_characters = string.ascii_letters + string.digits
@@ -341,6 +346,10 @@ class CounterEvaluator:
         Returns:
         - float: Accuracy between the counters.
         """
+
+        if len(set(self.true_counter.values())) == 1:
+            return 0
+        
         def unrelevant_element():
             combined_characters = string.ascii_letters + string.digits
             for _ in range(max_trials):

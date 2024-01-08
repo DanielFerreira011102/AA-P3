@@ -1,12 +1,11 @@
+import math
 import random
 import string
 import numpy as np
 import pandas as pd
 import seaborn as sns
 from matplotlib import pyplot as plt
-from scipy.stats import kendalltau
 sns.set_style("whitegrid")
-
 
 def main():
     work = 'republic'
@@ -15,110 +14,46 @@ def main():
         'pt': {'morris': f'results\{work}\pt\morris.csv', 'fixed': f'results\{work}\pt\\fixed.csv', 'cms': f'results\{work}\pt\cms.csv', 'lossy': f'results\{work}\pt\lossy.csv', 'exact': f'results\{work}\pt\exact.csv'}
     }
 
-    en_exact_df = pd.read_csv(files['en']['exact'])
-    pt_exact_df = pd.read_csv(files['pt']['exact'])
-
-    en_exact_df['counter'] = en_exact_df['counter'].apply(eval)
-    pt_exact_df['counter'] = pt_exact_df['counter'].apply(eval)
-    en_exact_counter = en_exact_df['counter'][0]
-    pt_exact_counter = pt_exact_df['counter'][0]
-
-    print(en_exact_counter)
-
-    alg = 'lossy'
+    alg = 'cms'
     print(work)
     print(alg)
+
 
     en_df = pd.read_csv(files['en'][alg])
     pt_df = pd.read_csv(files['pt'][alg])
 
-    s = 'counter' + ('_transformed' if alg in ('lossy', 'cms') else '')
-
-    en_df[s] = en_df[s].apply(eval)
-    pt_df[s] = pt_df[s].apply(eval)
-    
-    def ndcg(retrieved, relevant, k=10, max_trials=1000, relevance_method='inverse_log'):
-        def unrelevant_element():
-            combined_characters = string.ascii_letters + string.digits
-            for _ in range(max_trials):
-                new_element = ''.join(random.choices(combined_characters, k=len(combined_characters) // 2))
-                if new_element not in relevant:
-                    return new_element
-
-        def relevance_score(doc):
-            if relevance_method == 'linear':
-                return len(relevant) - relevant.index(doc)
-            elif relevance_method == 'inverse_log':
-                return 1 / np.log2(relevant.index(doc) + 2)
-            elif relevance_method == 'inverse_rank':
-                return 1 / (relevant.index(doc) + 1)
-            elif relevance_method == 'standard':
-                return 1
-            raise ValueError("Invalid relevance scoring method")
-        
-        relevant = list(sorted(relevant.keys(), key=lambda item: (-relevant[item], item)))
-        retrieved = list(sorted(retrieved.keys(), key=lambda item: (-retrieved[item], relevant.index(item))))
-        
-        n_pred = len(retrieved)
-        n_true = len(relevant)
-
-        k = min(k, n_true)
-
-        retrieved = retrieved[:k]
-
-        if k > n_pred:
-            fill_char = unrelevant_element()
-            retrieved += [fill_char] * (k - n_pred)
-
-        relevant = relevant[:len(retrieved)]
-
-        rels = [relevance_score(doc) if doc in relevant else 0 for doc in retrieved]
-
-        dcg = rels[0] + sum([(rels[i]) / np.log2(i + 2) for i in range(1, len(rels))])
-
-        ideal_rels = [relevance_score(doc) if doc in relevant else 0 for doc in relevant]
-        idcg = ideal_rels[0] + sum([(ideal_rels[i]) / np.log2(i + 2) for i in range(1, len(ideal_rels))])
-        
-        ndcg = dcg / idcg if idcg > 0 else 0
-
-        return ndcg
-
-    en_df['ndcg@10'] = en_df[s].apply(lambda x: ndcg(x, en_exact_counter, k=10))
-    pt_df['ndcg@10'] = pt_df[s].apply(lambda x: ndcg(x, pt_exact_counter, k=10))
-
-    en_df['ndcg@5'] = en_df[s].apply(lambda x: ndcg(x, en_exact_counter, k=5))
-    pt_df['ndcg@5'] = pt_df[s].apply(lambda x: ndcg(x, pt_exact_counter, k=5))
-
-    en_df['ndcg@3'] = en_df[s].apply(lambda x: ndcg(x, en_exact_counter, k=3))
-    pt_df['ndcg@3'] = pt_df[s].apply(lambda x: ndcg(x, pt_exact_counter, k=3))
-
-    en_df.to_csv(files['en'][alg], index=False)
-    pt_df.to_csv(files['pt'][alg], index=False)
-
-    return
-
-    return
-
-    e_values = en_df['error_rate']
-    s_values = en_df['support_threshold']
-    en_total_bits_required = en_df['BR']
-    pt_total_bits_required = pt_df['BR']
     en_total_bits_saved = en_df['BS']
     pt_total_bits_saved = pt_df['BS']
-    en_df['counter'] = en_df['counter'].apply(eval)
-    pt_df['counter'] = pt_df['counter'].apply(eval)
+    en_ndcg_10 = en_df['ndcg@10']
+    pt_ndcg_10 = pt_df['ndcg@10']
+    en_ndcg_5 = en_df['ndcg@5']
+    pt_ndcg_5 = pt_df['ndcg@5']
+    en_ndcg_3 = en_df['ndcg@3']
+    pt_ndcg_3 = pt_df['ndcg@3']
 
-    en_counter = en_df['counter']
-    pt_counter = pt_df['counter']
+    # set ndcg@10, ndcg@5, ndcg@3 to 0 if BS == 1
+
+    # set cre@10, cre@5, cre@3 to 0.5 if BS = 1
+
+    print(en_df['cre@10'].max())
+    print(en_df['cre@10'].idxmax())
+
+    # print the full row
+    print(en_df.iloc[en_df['cre@3'].idxmax()])
+    print(pt_df.iloc[pt_df['cre@3'].idxmax()])
+
+    return
     
     palette = {'en': '#000', 'pt': '#aaa'}
 
-    en_value_s = en_total_bits_required
-    pt_value_s = pt_total_bits_required
+    en_value_s = en_ndcg_10
+    pt_value_s = pt_ndcg_10
     y_label = r'$\sigma$'
     x_label = r'$\varepsilon$'
-    bar_label = 'BR'
+    bar_label = 'NDCG@10'
     filename = bar_label.lower()
+    
+    # print values that maximize NDGC@10
 
     fig, axes = plt.subplots(1, 2, sharex=True, sharey=True, layout="constrained", figsize=(14, 8))
 
@@ -134,7 +69,7 @@ def main():
     axes[0].set_xlabel(x_label, fontsize=20)
     axes[0].xaxis.set_label_coords(1.025, -0.04)
 
-    scatter_pt = axes[1].scatter(en_df['error_rate'], en_df['support_threshold'], c=pt_value_s, vmin=vmin, vmax=vmax, cmap='Greys', alpha=0.8)
+    scatter_pt = axes[1].scatter(pt_df['error_rate'], pt_df['support_threshold'], c=pt_value_s, vmin=vmin, vmax=vmax, cmap='Greys', alpha=0.8)
     axes[1].tick_params(axis='both', which='major', labelsize=18)
 
     cbar = fig.colorbar(scatter_pt)
@@ -144,7 +79,7 @@ def main():
     axes[0].grid(True, linestyle='--')
     axes[1].grid(True, linestyle='--')
 
-    plt.savefig(f'images/republic/lossy/{filename}.png', format='png', bbox_inches='tight')
+    plt.savefig(f'images/{work}/{alg}/{filename}.png', format='png', bbox_inches='tight')
     plt.show()
 
 if __name__ == "__main__":
