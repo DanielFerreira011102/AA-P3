@@ -21,6 +21,10 @@ class CounterEvaluator:
     - Willmott index
     - Confidence index
     - Nash-Sutcliffe efficiency
+    - Average precision
+    - Normalized discounted cumulative gain
+    - Accuracy
+    - Kendall tau
     """
     def __init__(self, true_counter, pred_counter):
         """
@@ -229,6 +233,7 @@ class CounterEvaluator:
 
         Parameters:
         - k (int): Number of top elements to consider.
+        - max_trials (int): Maximum number of trials to generate an unrelevant element, in case the retrieved list is smaller than k.
 
         Returns:
         - float: Average precision between the counters.
@@ -267,12 +272,14 @@ class CounterEvaluator:
 
         return score / k
     
-    def normalized_discounted_cumulative_gain(self, relevance_method='standard', k=10, max_trials=1000):
+    def normalized_discounted_cumulative_gain(self, k=10, relevance_method='standard', max_trials=1000):
         """
         Return the normalized discounted cumulative gain between the counters.
 
         Parameters:
         - k (int): Number of top elements to consider.
+        - relevance_method (str): Method for relevance scoring. Can be 'linear', 'inverse_log', 'inverse_rank' or 'standard'.
+        - max_trials (int): Maximum number of trials to generate an unrelevant element, in case the retrieved list is smaller than k.
 
         Returns:
         - float: Normalized discounted cumulative gain between the counters.
@@ -314,10 +321,10 @@ class CounterEvaluator:
 
         rels = [relevance_score(doc) if doc in relevant else 0 for doc in retrieved]
 
-        dcg = rels[0] + sum([(rels[i]) / math.log2(i + 1) for i in range(1, len(rels))])
+        dcg = rels[0] + sum([(rels[i]) / math.log2(i + 2) for i in range(1, len(rels))])
 
         ideal_rels = [relevance_score(doc) if doc in relevant else 0 for doc in relevant]
-        idcg = ideal_rels[0] + sum([(ideal_rels[i]) / math.log2(i + 1) for i in range(1, len(ideal_rels))])
+        idcg = ideal_rels[0] + sum([(ideal_rels[i]) / math.log2(i + 2) for i in range(1, len(ideal_rels))])
         
         ndcg = dcg / idcg if idcg > 0 else 0
 
@@ -329,6 +336,7 @@ class CounterEvaluator:
 
         Parameters:
         - k (int): Number of top elements to consider.
+        - max_trials (int): Maximum number of trials to generate an unrelevant element, in case the retrieved list is smaller than k.
 
         Returns:
         - float: Accuracy between the counters.
@@ -365,6 +373,12 @@ class CounterEvaluator:
         return hits / k
 
     def kendall_tau(self):
+        """
+        Return the Kendall tau between the counters.
+
+        Returns:
+        - float: Kendall tau between the counters.
+        """
         relevant = list(sorted(self.true_counter.keys(), key=lambda item: (-self.true_counter[item], item)))
         retrieved = list(sorted(self.pred_counter.keys(), key=lambda item: (-self.pred_counter[item], relevant.index(item))))
     
@@ -419,5 +433,5 @@ class CounterEvaluator:
             "average_precision": self.average_precision(),
             "normalized_discounted_cumulative_gain": self.normalized_discounted_cumulative_gain(),
             "accuracy": self.accuracy(),
-            "kendall_tau": self.kendall_tau()
+            "kendall_tau": self.kendall_tau(),
         }

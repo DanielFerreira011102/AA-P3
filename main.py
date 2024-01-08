@@ -9,7 +9,7 @@ sns.set_style("whitegrid")
 
 
 def main():
-    work = 'mere_christianity'
+    work = 'republic'
     files = {
         'en': {'morris': f'results\{work}\en\morris.csv', 'fixed': f'results\{work}\en\\fixed.csv', 'cms': f'results\{work}\en\cms.csv', 'lossy': f'results\{work}\en\lossy.csv', 'exact': f'results\{work}\en\exact.csv'},
         'pt': {'morris': f'results\{work}\pt\morris.csv', 'fixed': f'results\{work}\pt\\fixed.csv', 'cms': f'results\{work}\pt\cms.csv', 'lossy': f'results\{work}\pt\lossy.csv', 'exact': f'results\{work}\pt\exact.csv'}
@@ -26,6 +26,7 @@ def main():
     print(en_exact_counter)
 
     alg = 'lossy'
+    print(work)
     print(alg)
 
     en_df = pd.read_csv(files['en'][alg])
@@ -36,7 +37,7 @@ def main():
     en_df[s] = en_df[s].apply(eval)
     pt_df[s] = pt_df[s].apply(eval)
     
-    def ndcg(retrieved, relevant, k=10, max_trials=1000):
+    def ndcg(retrieved, relevant, k=10, max_trials=1000, relevance_method='inverse_log'):
         def unrelevant_element():
             combined_characters = string.ascii_letters + string.digits
             for _ in range(max_trials):
@@ -44,6 +45,17 @@ def main():
                 if new_element not in relevant:
                     return new_element
 
+        def relevance_score(doc):
+            if relevance_method == 'linear':
+                return len(relevant) - relevant.index(doc)
+            elif relevance_method == 'inverse_log':
+                return 1 / np.log2(relevant.index(doc) + 2)
+            elif relevance_method == 'inverse_rank':
+                return 1 / (relevant.index(doc) + 1)
+            elif relevance_method == 'standard':
+                return 1
+            raise ValueError("Invalid relevance scoring method")
+        
         relevant = list(sorted(relevant.keys(), key=lambda item: (-relevant[item], item)))
         retrieved = list(sorted(retrieved.keys(), key=lambda item: (-retrieved[item], relevant.index(item))))
         
@@ -60,25 +72,30 @@ def main():
 
         relevant = relevant[:len(retrieved)]
 
-        hits = 0.0
+        rels = [relevance_score(doc) if doc in relevant else 0 for doc in retrieved]
+
+        dcg = rels[0] + sum([(rels[i]) / np.log2(i + 2) for i in range(1, len(rels))])
+
+        ideal_rels = [relevance_score(doc) if doc in relevant else 0 for doc in relevant]
+        idcg = ideal_rels[0] + sum([(ideal_rels[i]) / np.log2(i + 2) for i in range(1, len(ideal_rels))])
         
-        for i, item in enumerate(retrieved):
-            if item == relevant[i]:
-                hits += 1
+        ndcg = dcg / idcg if idcg > 0 else 0
 
-        return hits / k
-    
-    en_df['acc@10'] = en_df[s].apply(lambda x: ndcg(x, en_exact_counter, k=10))
-    pt_df['acc@10'] = pt_df[s].apply(lambda x: ndcg(x, pt_exact_counter, k=10))
+        return ndcg
 
-    en_df['acc@5'] = en_df[s].apply(lambda x: ndcg(x, en_exact_counter, k=5))
-    pt_df['acc@5'] = pt_df[s].apply(lambda x: ndcg(x, pt_exact_counter, k=5))
+    en_df['ndcg@10'] = en_df[s].apply(lambda x: ndcg(x, en_exact_counter, k=10))
+    pt_df['ndcg@10'] = pt_df[s].apply(lambda x: ndcg(x, pt_exact_counter, k=10))
 
-    en_df['acc@3'] = en_df[s].apply(lambda x: ndcg(x, en_exact_counter, k=3))
-    pt_df['acc@3'] = pt_df[s].apply(lambda x: ndcg(x, pt_exact_counter, k=3))
+    en_df['ndcg@5'] = en_df[s].apply(lambda x: ndcg(x, en_exact_counter, k=5))
+    pt_df['ndcg@5'] = pt_df[s].apply(lambda x: ndcg(x, pt_exact_counter, k=5))
+
+    en_df['ndcg@3'] = en_df[s].apply(lambda x: ndcg(x, en_exact_counter, k=3))
+    pt_df['ndcg@3'] = pt_df[s].apply(lambda x: ndcg(x, pt_exact_counter, k=3))
 
     en_df.to_csv(files['en'][alg], index=False)
     pt_df.to_csv(files['pt'][alg], index=False)
+
+    return
 
     return
 
